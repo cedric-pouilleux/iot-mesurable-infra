@@ -1,0 +1,9 @@
+# Environment
+.env
+
+# Mosquitto runtime data
+mosquitto/data/
+mosquitto/log/
+
+# Docker volumes (if any local)
+volumes/

@@ -1,0 +1,86 @@
+services:
+  # 1. Base de données Time Series
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=iot_data
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - iot_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Broker MQTT
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: always
+    ports:
+      - "1883:1883" 
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - iot_net
+
+  # 3. Backend Node.js
+  backend:
+    build: ../iot-mesurable-server
+    restart: always
+    ports:
+      - "3001:3001"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    environment:
+      - DB_HOST=timescaledb
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+      - MQTT_BROKER=${MQTT_BROKER_URL}
+      - API_PORT=${API_PORT}
+    networks:
+      - iot_net
+
+  # 4. Frontend Nuxt
+  frontend:
+    build: ../iot-mesurable-nuxt-app
+    restart: always
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+      # On pointe sur la racine (Nginx gérera le proxy /socket.io)
+      - SOCKET_URL=${SOCKET_URL}
+      - API_URL=${API_URL}
+    networks:
+      - iot_net
+
+  # 5. Reverse Proxy Nginx
+  nginx:
+    image: nginx:latest
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - iot_net
+
+volumes:
+  db_data:
+
+networks:
+  iot_net:
+    driver: bridge
