@@ -12,7 +12,7 @@ services:
     networks:
       - iot_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,9 +20,11 @@ services:
   # 2. Broker MQTT
   mosquitto:
     image: eclipse-mosquitto:2
+    hostname: growbrain
     restart: always
     ports:
-      - "1883:1883" 
+      - "1883:1883"
+      - "9001:9001" # WebSocket port
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
@@ -80,6 +82,7 @@ services:
 
 volumes:
   db_data:
+
 
 networks:
   iot_net:
